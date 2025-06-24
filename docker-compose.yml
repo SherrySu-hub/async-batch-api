@@ -1,0 +1,18 @@
+services:
+  ai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: classification:test
+    container_name: classification_test
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    stdin_open: true  # -i
+    tty: true  # -tdeploy:
+    ports:
+      - "5001:5001"
