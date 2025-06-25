@@ -1,4 +1,5 @@
 # 非同步批次任務處理 API
+[English](https://github.com/SherrySu-hub/AI_deployment/blob/main/README.md) | [Chinese](https://github.com/SherrySu-hub/AI_deployment/blob/main/README_ZH.md)
 
 本專案提供一個基於 FastAPI 與 asyncio 架構的 **通用非同步批次任務處理 API 框架**。它支援所有可從批次推論中受益的任務，例如圖片分類、NLP 預測、影片畫面處理等等。
 
