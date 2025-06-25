@@ -54,7 +54,7 @@ class BatchProcessor:
             if batch:
                 try:
                     batch_tensor = torch.cat(batch, dim=0)
-                    batch_predictions = self._classify_batch(batch_tensor)
+                    batch_predictions = self._predict_batch(batch_tensor)
                     # Store each processed result along with its ID in a dictionary for easy retrieval later.
                     for img_id, prediction in zip(img_ids, batch_predictions):
                         self.result_dict[img_id].set_result((prediction))
@@ -62,7 +62,7 @@ class BatchProcessor:
                 except Exception:
                     self._log_error()
 
-    def _classify_batch(self, batch_tensor):
+    def _predict_batch(self, batch_tensor):
         return self.predict(imgs=batch_tensor, model=self.model, device=self.device)
 
     def _log_error(self):
