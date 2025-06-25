@@ -1,5 +1,5 @@
 # Async Batch Processing API
-[English](https://github.com/SherrySu-hub/AI_deployment/blob/main/README.md) | [Chinese](https://github.com/SherrySu-hub/AI_deployment/blob/main/README_ZH.md)
+English | [中文](https://github.com/SherrySu-hub/AI_deployment/blob/main/README_ZH.md)
 
 This project provides a **general-purpose asynchronous batch processing API framework** built with FastAPI and asyncio. It supports any task that benefits from batch inference, such as image classification, NLP prediction, video frame processing, and more.
 
