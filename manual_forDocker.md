@@ -1,5 +1,4 @@
-# Docker - Overview
-[Docker 官方 Overview](https://docs.docker.com/get-started/docker-overview/) <br>
+# Docker - 預備知識
 [Docker 介紹](https://www.omniwaresoft.com.tw/product-news/docker-news/docker-introduction/)
 
 # 映像檔（Image）: 
