@@ -3,7 +3,6 @@ warnings.filterwarnings('ignore')
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, UploadFile
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
 import uvicorn
 import logging
 import io
@@ -16,11 +15,6 @@ app = FastAPI()
 
 logger = logging.getLogger('gunicorn.error')
 logger.setLevel(logging.INFO)
-
-# multi-thread
-executor = ThreadPoolExecutor(max_workers=4)
-
-result_dict = {}
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -38,59 +32,66 @@ class BatchProcessor:
         self.device = device
 
     async def process_batch(self):
+        # run this program indefinitely
         while True:
+            '''
+            Retrieve data from the queue and append it to a list. 
+            After reaching the maximum number of fetch attempts, process the list if it's not empty
+            '''
             img_ids, batch = [], []
-            # Wait until we have enough requests in the queue
             for _ in range(self.batch_size):
                 try:
-                    img_id, img = await asyncio.wait_for(self.queue.get(), timeout=self.batch_timeout)
+                    # Set a timeout when retrieving data from the queue.
+                    img_id, img = await asyncio.wait_for(self.queue.get(), timeout=self.batch_timeout)  
                     img_ids.append(img_id)
                     batch.append(img)
+                # If timeout occurs and the list is empty, reset the fetch attempt count.
                 except asyncio.TimeoutError:
-                    if not batch:  # No requests in the queue
+                    if not batch:  
                         break
 
+            # If the list is not empty, process the data.
             if batch:
                 try:
                     batch_tensor = torch.cat(batch, dim=0)
                     batch_predictions = self._classify_batch(batch_tensor)
+                    # Store each processed result along with its ID in a dictionary for easy retrieval later.
                     for img_id, prediction in zip(img_ids, batch_predictions):
                         self.result_dict[img_id].set_result((prediction))
 
-                except Exception as e:
-                    print(e)
-                    self._log_error(e)
+                except Exception:
+                    self._log_error()
 
     def _classify_batch(self, batch_tensor):
         return self.predict(imgs=batch_tensor, model=self.model, device=self.device)
 
-    def _log_error(self, exception):
-        tb = traceback.extract_tb(exception.__traceback__)
-        _, line, func, text = tb[-1]
-        logger.info(f"Batch processing error: {func} at line {line}: {text}\n{str(exception)}")
+    def _log_error(self):
+        logger.info(f'{traceback.format_exc()}')
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
 
     print('start app')
-    # Queue
     app.state.img_queue = asyncio.Queue()
+    app.state.result_dict = {}
 
     batch_processor = BatchProcessor(
         queue=app.state.img_queue,
         model=get_model(device=device),
         predict_function=batch_classification,
-        result_dict=result_dict,
+        result_dict=app.state.result_dict,
         device=device
     )
 
-    # run in the background
+    # run it as a background coroutine
     cls_task = asyncio.create_task(batch_processor.process_batch())
 
     try:
         yield  # Keep the app running
     finally:
+        # Cancel the background task on shutdown
         cls_task.cancel()
+        # Wait for the task to finish cancellation, suppressing any exceptions
         await asyncio.gather(cls_task, return_exceptions=True)
         print('App shutdown complete')
 
@@ -106,20 +107,20 @@ async def predict(file: UploadFile):
     try:
         content = await file.read()
 
-        image_data = io.BytesIO(content)  # get image
+        image_data = io.BytesIO(content)
         img_id = id(image_data)
 
         img = preprocess(Image.open(image_data))
 
-        result_dict[img_id] = asyncio.Future()  # A future is an object that represents a delayed result for an asynchronous task.
+        # A future is an object that represents a delayed result for an asynchronous task.
+        app.state.result_dict[img_id] = asyncio.Future()
         await app.state.img_queue.put((img_id, img))
-        prediction = await result_dict[img_id]
+        prediction = await app.state.result_dict[img_id]
     
         return {'prediction': prediction}
 
     except Exception:
-        print(f'{traceback.print_exc()}')
-        logger.info(f'{traceback.print_exc()}')
+        logger.info(f'{traceback.format_exc()}')
         raise HTTPException(status_code=500)  # 500
     
 if __name__ == '__main__':

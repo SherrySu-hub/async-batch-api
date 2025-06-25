@@ -5,9 +5,7 @@ Author: Sherry
 '''
 import torch
 import torchvision.transforms as transforms
-from PIL import Image
 from torchvision.models import resnet18
-import numpy as np
 # import的路徑請用相對路徑
 
 def get_model(weight_path='classification/resnet18-f37072fd.pth', device='cpu'):
