@@ -11,7 +11,7 @@
   使用 **Dockerfile**
 
 * 查看所有 image 資訊: `docker images [image]`
-* 刪除: `docker rm [image]`
+* 刪除: `docker rmi [image]`
 * 儲存: `docker save -o [file_name] [image]:[tag]`
 * 載入: `docker load -i [file_name]`
 
