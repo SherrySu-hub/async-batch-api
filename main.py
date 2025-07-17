@@ -1,7 +1,8 @@
 import warnings
 warnings.filterwarnings('ignore')
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, UploadFile
+from fastapi.responses import JSONResponse
 import asyncio
 import uvicorn
 import logging
@@ -10,6 +11,8 @@ from classification.inference import get_model, preprocess, batch_classification
 import torch
 from PIL import Image
 import traceback
+from functools import wraps
+import os
 
 app = FastAPI()
 
@@ -17,6 +20,13 @@ logger = logging.getLogger('gunicorn.error')
 logger.setLevel(logging.INFO)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def get_timeout(env_var="timeout", default=2.0):
+    try:
+        return float(os.environ.get(env_var, default))
+    except (TypeError, ValueError):
+        return default
+timeout_seconds = get_timeout()
 
 '''
 Batch Process
@@ -97,31 +107,44 @@ async def lifespan(app: FastAPI):
 
 app.router.lifespan_context = lifespan
 
+def exception_logger(timeout_seconds=2.0):
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            try:
+                return await asyncio.wait_for(func(*args, **kwargs), timeout=timeout_seconds)
+            except asyncio.TimeoutError:
+                msg = f"Timeout after {timeout_seconds}s in {func.__name__}"
+                logger.error(msg)
+                return JSONResponse(status_code=504, content={"detail": f"Request timed out after {timeout_seconds} seconds"})
+            except Exception:
+                tb = traceback.format_exc()
+                logger.error(tb)
+                return JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
+        return wrapper
+    return decorator
+
 '''
 curl -X POST 127.0.0.1:5001/cls -F "file=@<file path>"
 '''
 @app.post("/cls")
+@exception_logger(timeout_seconds=timeout_seconds)
 async def predict(file: UploadFile):
 
     logger.info(f'Get the request')
-    try:
-        content = await file.read()
+    content = await file.read()
 
-        image_data = io.BytesIO(content)
-        img_id = id(image_data)
+    image_data = io.BytesIO(content)
+    img_id = id(image_data)
 
-        img = preprocess(Image.open(image_data))
+    img = preprocess(Image.open(image_data))
 
-        # A future is an object that represents a delayed result for an asynchronous task.
-        app.state.result_dict[img_id] = asyncio.Future()
-        await app.state.img_queue.put((img_id, img))
-        prediction = await app.state.result_dict[img_id]
-    
-        return {'prediction': prediction}
+    # A future is an object that represents a delayed result for an asynchronous task.
+    app.state.result_dict[img_id] = asyncio.Future()
+    await app.state.img_queue.put((img_id, img))
+    prediction = await app.state.result_dict[img_id]
 
-    except Exception:
-        logger.info(f'{traceback.format_exc()}')
-        raise HTTPException(status_code=500)  # 500
+    return {'prediction': prediction}
     
 if __name__ == '__main__':
     uvicorn.run("main:app", host="0.0.0.0", port=5001, reload=True)  # 

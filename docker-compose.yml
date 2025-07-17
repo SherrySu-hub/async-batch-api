@@ -16,3 +16,5 @@ services:
     tty: true  # -tdeploy:
     ports:
       - "5001:5001"
+    environment:
+      - timeout=1.0

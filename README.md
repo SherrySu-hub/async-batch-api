@@ -53,7 +53,27 @@ The service will be available at:
 http://localhost:5001/cls
 ```
 ---
+## Timeout Configuration
 
+This project includes a timeout handler to prevent long-running tasks from hanging the request. The default timeout is 2 seconds, and the API will return an HTTP 504 error if the prediction exceeds this limit.
+
+You can customize this timeout in the following ways:
+
+- **Local Development**:
+By default, a 2-second timeout is applied. You can manually adjust this value in main.py on line 29:
+  ```python
+  timeout_seconds = get_timeout()
+  ```
+
+- **Docker Deployment**:
+When deploying via Docker (e.g., using docker-compose), you can override the timeout by setting the environment variable timeout in your docker-compose.yml file:
+  ```yaml
+  environment:
+    - timeout=1.0
+  ```
+This timeout controls how long the API will wait for a batch inference result before returning a timeout error. Adjust the value based on your model performance and server conditions.
+
+---
 ## API Usage
 
 ### POST `/cls`

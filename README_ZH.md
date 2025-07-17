@@ -52,9 +52,29 @@ docker-compose up --build -d
 ```
 http://localhost:5001/cls
 ```
-
 ---
 
+## Timeout Configuration
+
+此專案內建 timeout 超時控制機制，避免長時間執行的請求阻塞系統。預設等待時間為 2 秒，若預測超過此時間，API 將回傳 HTTP 504 錯誤。
+
+你可以透過以下方式自訂此 timeout：
+
+- **本地開發**:
+預設為 2 秒。你可以手動修改 main.py 的第 29 行來調整 timeout 時間:
+  ```python
+  timeout_seconds = get_timeout()
+  ```
+
+- **Docker 部屬**:
+若使用 Docker（如 docker-compose）部署，可在 docker-compose.yml 設定 timeout 環境變數來覆蓋預設值:
+  ```yaml
+  environment:
+    - timeout=1.0
+  ```
+此 timeout 控制 API 等待推論結果的最長時間，請依照模型效能與硬體資源狀況調整。
+
+---
 ## API 使用方式
 
 ### POST `/cls`
